@@ -1,0 +1,34 @@
+# This file provides instructions for packaging.
+
+@prefix : <http://purl.org/NET/cpan-uri/terms#> .
+
+<http://purl.org/NET/cpan-uri/dist/RT-ClientX-GrabBugs/project>
+	:perl_version_from
+		_:main;
+	:version_from
+		_:main;
+	:readme_from
+		_:main;
+	:install_script
+		_:script;
+	:test_requires
+		"Test::More 0.61";
+	:requires
+		"autodie",
+		"namespace::autoclean",
+		"utf8",
+		"Getopt::ArgvFile",
+		"Getopt::Long",
+		"HTTP::Cookies",
+		"Module::Install::Admin::RDF",
+		"Moose 2.00",
+		"RDF::Trine 0.130",
+		"Web::Magic 0.007".
+
+_:main
+	<http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName>
+		"lib/RT/ClientX/GrabBugs.pm".
+
+_:script
+	<http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName>
+		"bin/rt-grabbugs".
