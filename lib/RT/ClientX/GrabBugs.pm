@@ -1,172 +1,220 @@
-package RT::ClientX::GrabBugs;
-
 use 5.010;
-use autodie;
-use namespace::autoclean;
+use strict;
+use warnings;
 use utf8;
+
+package RT::ClientX::GrabBugs;
 
 BEGIN {
 	$RT::ClientX::GrabBugs::AUTHORITY = 'cpan:TOBYINK';
-	$RT::ClientX::GrabBugs::VERSION   = '0.001';
+	$RT::ClientX::GrabBugs::VERSION   = '0.002';
 }
 
-use Getopt::ArgvFile justload => 1;
-use Getopt::Long qw/GetOptionsFromArray/;
-use HTTP::Cookies;
-use Module::Install::Admin::RDF;
 use Moose;
-use Web::Magic -quotelike => qw/web/;
+use namespace::autoclean;
+
+use Try::Tiny                qw(try catch finally);
+use Types::Standard          qw(-types);
+use Getopt::ArgvFile         qw(argvFile);
+use Getopt::Long             qw(GetOptionsFromArray);
+use RDF::Trine               qw(literal blank iri);
+use RT::Client::REST         qw();
+use RT::Client::REST::Queue  qw();
+use Cwd                      qw(cwd);
+use Path::FindDev            qw(find_dev);
+
+use RDF::Trine::Namespace qw/rdf rdfs owl xsd/;
+my $dbug   = RDF::Trine::Namespace->new('http://ontologi.es/doap-bugs#');
+my $dc     = RDF::Trine::Namespace->new('http://purl.org/dc/terms/');
+my $doap   = RDF::Trine::Namespace->new('http://usefulinc.com/ns/doap#');
+my $foaf   = RDF::Trine::Namespace->new('http://xmlns.com/foaf/0.1/');
+my $status = RDF::Trine::Namespace->new('http://purl.org/NET/cpan-uri/rt/status/');
+my $prio   = RDF::Trine::Namespace->new('http://purl.org/NET/cpan-uri/rt/priority/');
 
 has [qw/user pass/] => (
 	is       => 'ro',
-	isa      => 'Str',
+	isa      => Str,
 	required => 1,
-	);
+);
+
+has server => (
+	is       => 'ro',
+	isa      => Str,
+	default  => 'https://rt.cpan.org',
+);
+
+has project_uri => (
+	is       => 'ro',
+	isa      => Str,
+	lazy     => 1,
+	builder  => '_build_project_uri',
+);
 
 has queue => (
 	is       => 'ro',
-	isa      => 'Str',
+	isa      => Str,
 	lazy     => 1,
 	builder  => '_build_queue',
-	);
-
-has queue_table => (
-	is       => 'ro',
-	isa      => 'ArrayRef',
-	lazy     => 1,
-	builder  => '_build_queue_table',
-	);
+);
 
 has queue_model => (
 	is       => 'ro',
-	isa      => 'RDF::Trine::Model',
+	isa      => InstanceOf['RDF::Trine::Model'],
 	lazy     => 1,
 	builder  => '_build_queue_model',
-	);
+);
 
 has dest => (
 	is       => 'ro',
-	isa      => 'Str',
-	default  => './meta/rt-bugs.ttl',
-	);
-
-has bug_class => (
-	is       => 'ro',
-	isa      => 'Str',
-	default  => join('::', __PACKAGE__, 'Bug'),
-	);
-
-# Hacks to trick Module::Install::Admin::RDF
-{
-	sub _top            { $_[0] }
-	sub rdf_metadata    { Module::Install::Admin::RDF::rdf_metadata(@_) }
-	sub rdf_project_uri { Module::Install::Admin::RDF::rdf_project_uri(@_) }
-}
+	isa      => Str | InstanceOf['Path::Tiny'],
+	default  => sub { find_dev(cwd)->child('meta/rt-bugs.ttl') },
+);
 
 sub main
 {
 	my ($class, @argv) = @_;
 	
-	Getopt::ArgvFile::argvFile(
+	argvFile(
 		array           => \@argv,
 		startupFilename => '.rt-grabbugs',
 		current         => 1,
 		home            => 1,
-		);
+	);
 	
-	GetOptionsFromArray(\@argv, \(my %opts),
-		'queue=s',
-		'dest=s',
-		'user=s',
-		'pass=s',
-		);
+	my %opts;
+	GetOptionsFromArray(
+		\@argv,
+		\%opts,
+		qw/
+			queue=s
+			dest=s
+			user=s
+			pass=s
+			server=s
+			project_uri=s
+		/,
+	);
 	
 	$class->new(%opts)->process;
 }
 
 sub _build_queue
 {
-	my ($self)  = @_;
-	my $doapuri = $self->rdf_project_uri;
+	my $self = shift;
+	my $root = find_dev(cwd);
 	
-	if ($doapuri =~ qr{ <http://purl.org/NET/cpan-uri/dist/(.+)/project> }x)
+	my $ini = $root->child('dist.ini');
+	if ($ini)
 	{
-		return $1;
+		my @ini = grep /^;;/, do { my $fh = $ini->openr; <$fh> };
+		chomp @ini;
+		my %config = map {
+			s/(?:^;;\s*)|(?:\s*$)//g;
+			my ($key, $value) = split /\s*=\s*/, $_, 2;
+			$key => scalar(eval($value));
+		} @ini;
+		return $config{name} if $config{name};
 	}
-	
+
 	confess "Unable to determine RT queue. Please specify manually.";
 }
 
-sub _build_queue_table
+sub _build_project_uri
 {
-	my ($self)  = @_;
-	
-	# Need to use cookies for logging in.
-	local $Web::Magic::user_agent = LWP::UserAgent->new(
-		cookie_jar => HTTP::Cookies->new,
-		agent      => sprintf('%s/%s ', __PACKAGE__, __PACKAGE__->VERSION),
-		);
-	
-	web <https://rt.cpan.org/NoAuth/Login.html>
-		-> POST({ user => $self->user, pass => $self->pass });
-	
-	# Stupidly long URL. Some can probably be cut down.
-	my $template = join '', qw{
-		https://rt.cpan.org/Search/Results.tsv?Format=%%0A%%20%%20%%20'
-		%%3CB%%3E%%3CA%%20HREF%%3D%%22__WebPath__%%2FTicket%%2FDisplay.
-		html%%3Fid%%3D__id__%%22%%3E__id__%%3C%%2Fa%%3E%%3C%%2FB%%3E
-		%%2FTITLE%%3A%%23'%%2C%%0A%%20%%20%%20'%%3CB%%3E%%3CA%%20HREF
-		%%3D%%22__WebPath__%%2FTicket%%2FDisplay.html%%3Fid%%3D__id__
-		%%22%%3E__Subject__%%3C%%2Fa%%3E%%3C%%2FB%%3E%%2FTITLE%%3ASubject
-		'%%2C%%0A%%20%%20%%20Status%%2C%%0A%%20%%20%%20QueueName%%2C%%20
-		%%0A%%20%%20%%20OwnerName%%2C%%20%%0A%%20%%20%%20Priority%%2C%%20
-		%%0A%%20%%20%%20'__NEWLINE__'%%2C%%0A%%20%%20%%20''%%2C%%20%%0A
-		%%20%%20%%20'%%3Csmall%%3E__Requestors__%%3C%%2Fsmall%%3E'%%2C
-		%%0A%%20%%20%%20'%%3Csmall%%3E__CreatedRelative__%%3C%%2Fsmall
-		%%3E'%%2C%%0A%%20%%20%%20'%%3Csmall%%3E__ToldRelative__%%3C%%2F
-		small%%3E'%%2C%%0A%%20%%20%%20'%%3Csmall%%3E__LastUpdatedRelative__
-		%%3C%%2Fsmall%%3E'%%2C%%0A%%20%%20%%20'%%3Csmall%%3E__TimeLeft__
-		%%3C%%2Fsmall%%3E'&Order=ASC&OrderBy=id&Page=1&Query=Queue%%20%%3D
-		%%20'%s')&Rows=50
-		};
-	my $uri = sprintf($template, $self->queue);
-	my $tsv = web <$uri> -> assert_success;
-	
-	my @rows   = split /\r?\n/, $tsv;
-	my @fields = map { $_ =~ s/\W/_/g; $_ }
-		(split /\t/, shift @rows);
-	
-	my $cache = {};
-	
-	[ map {
-		my %hash;
-		@hash{ @fields } = split /\t/, $_;
-		$self->bug_class->new(%hash, person_cache => $cache);
-		} @rows ];
+	my $self  = shift;
+	sprintf('http://purl.org/NET/cpan-uri/dist/%s/project', $self->queue);
 }
 
 sub _build_queue_model
 {
-	my ($self) = @_;
-	
+	my $self  = shift;
 	my $model = RDF::Trine::Model->new;
-	my $queue = $self->queue_table;
-	foreach my $bug (@$queue)
-	{
-		$bug->add_to_model($model);
-	}
 	
-	$model;
+	warn sprintf "Logging in to %s\n", $self->server;
+	
+	my $rt;
+	try
+	{
+		$rt = RT::Client::REST->new(
+			server   => $self->server,
+			timeout  => 60,
+		);
+		push @{ $rt->_ua->{requests_redirectable} }, 'POST';
+		$rt->login(
+			username => $self->user,
+			password => $self->pass,
+		);
+	}
+	catch
+	{
+		require Data::Dumper;
+		die Data::Dumper::Dumper($_);
+	};
+	
+	warn sprintf "Retrieving queue for %s\n", $self->queue;
+	
+	my $queue = RT::Client::REST::Queue->new(
+		rt       => $rt,
+		id       => $self->queue,
+	)->retrieve;
+	my $tickets = $queue->tickets->get_iterator;
+	
+	while (my $ticket = $tickets->())
+	{
+		$self->_process_ticket($model, $queue, $ticket);
+	}
+
+	return $model;
+}
+
+my %EMAIL;
+sub _process_ticket
+{
+	my $self = shift;
+	my ($model, $queue, $ticket) = @_;
+	
+	warn sprintf("Processing RT#%d\n", $ticket->id);
+	
+	my $P = iri $self->project_uri;
+	my $T = iri sprintf('http://purl.org/NET/cpan-uri/rt/ticket/%d', $ticket->id);
+	
+	$model->add_statement($_) for (
+		RDF::Trine::Statement->new($P, $dbug->issue, $T),
+		RDF::Trine::Statement->new($T, $rdf->type, $dbug->Issue),
+		RDF::Trine::Statement->new($T, $dbug->id, literal($ticket->id)),
+		RDF::Trine::Statement->new($T, $dbug->page, iri sprintf('https://rt.cpan.org/Public/Bug/Display.html?id=%d', $ticket->id)),
+		RDF::Trine::Statement->new($T, $dbug->status, $status->${\ $ticket->status }),
+		RDF::Trine::Statement->new($T, $dc->created, literal($ticket->created, undef, $xsd->dateTime)),
+		RDF::Trine::Statement->new($T, $rdfs->label, literal($ticket->subject)),
+	);
+	
+	for my $email ($ticket->requestors) {
+		my $R = ($email =~ /\A(\w+)\@cpan.org\z/i)
+			? iri(sprintf 'http://purl.org/NET/cpan-uri/person/%s', $1)
+			: ( $EMAIL{$email} ||= blank() );
+		$model->add_statement($_) for (
+			RDF::Trine::Statement->new($T, $dc->reporter, $R),
+			RDF::Trine::Statement->new($R, $rdf->type, $foaf->Agent),
+			RDF::Trine::Statement->new($R, $foaf->mbox, iri sprintf('mailto:%s', $email)),
+		);
+	}
 }
 
 sub process
 {
-	my ($self) = @_;
+	my $self = shift;
+	
+	my $model = $self->queue_model;
+	
+	my $ser = eval { require RDF::TrineX::Serializer::MockTurtleSoup }
+		? 'RDF::TrineX::Serializer::MockTurtleSoup'
+		: 'RDF::Trine::Serializer::Turtle';
+	
+	warn sprintf("Writing to %s using %s\n", $self->dest, $ser);
 	
 	open my $fh, '>:encoding(UTF-8)', $self->dest;
 	
-	RDF::Trine::Serializer::Turtle
-		->new(namespaces => {
+	$ser->new(namespaces => {
 			dbug   => 'http://ontologi.es/doap-bugs#',
 			dc     => 'http://purl.org/dc/terms/',
 			doap   => 'http://usefulinc.com/ns/doap#',
@@ -176,8 +224,7 @@ sub process
 			status => 'http://purl.org/NET/cpan-uri/rt/status/',
 			prio   => 'http://purl.org/NET/cpan-uri/rt/priority/',
 			xsd    => 'http://www.w3.org/2001/XMLSchema#',
-			})
-		->serialize_model_to_file($fh, $self->queue_model);
+		})->serialize_model_to_file($fh, $model);
 	
 	$self;
 }
@@ -233,9 +280,9 @@ The constructor supports the options "--user", "--pass", "--queue" and
 
 =over
 
-=item * C<user>, C<pass>
+=item * C<server>, C<user>, C<pass>
 
-Username and password for logging into RT.
+Details for logging into RT.
 
 =item * C<dest>
 
@@ -248,30 +295,25 @@ Queue to grab bugs for. Assuming that you're grabbing from rt.cpan.org, this
 corresponds to a CPAN distribution (e.g. "RT-ClientX-GrabBugs").
 
 If not provided, this module will try to guess which queue you want. It does
-this by looking for a subdirectory called "meta" in the current directory;
-loading all the RDF in "meta"; and figuring out the doap:Project resource
-which is best described. The heuristics work perfectly well for me, but
-unless you package your distributions exactly like I do, they're unlikely
-to work well for you. In which case, you should avoid this default behaviour.
+this by looking for a file called "dist.ini" in the project directory. Within
+this file, it looks for a line with the following format:
 
-=item * C<queue_table>
+	;; name="Foo-Bar"
 
-An arrayref of RT::ClientX::GrabBugs::Bug (see C<bug_class>) objects
-representing all the bugs from a project.
+This type of line is commonly found in dist.ini files designed for
+L<Dist::Inkt>. If you're using L<Dist::Zilla> it should be possible to add
+such a line without breaking anything. (Dist::Zilla sees lines beginning with
+a semicolon as comments.)
 
-By default, this module will build this by logging into RT and downloading it.
-Here, you probably B<want> to rely on the default behaviour, because that's
-the whole point of using the module.
+=item * C<project_uri>
+
+URI to use for doap:Project in output.
 
 =item * C<queue_model>
 
 An RDF::Trine::Model generated by calling the C<add_to_model> method on each
-bug in the C<queue_table> list. Again, here you probably want to rely on the
-default.
-
-=item * C<bug_class>
-
-A class to bless bugs into, defaults to RT::ClientX::GrabBugs::Bug.
+bug in the C<queue_table> list. Here you probably want to rely on the default
+model that the class builds.
 
 =back
 
@@ -285,10 +327,6 @@ Saves the model from C<queue_model> to the destination C<dest> as Turtle.
 
 Returns C<$self>.
 
-=item * C<< rdf_metadata >>, C<< rdf_project_uri >>
-
-Methods borrowed from L<Module::Install::Admin::RDF>.
-
 =back
 
 =head1 BUGS
@@ -298,7 +336,7 @@ L<http://rt.cpan.org/Dist/Display.html?Queue=RT-ClientX-GrabBugs>.
 
 =head1 SEE ALSO
 
-L<RT::ClientX::GrabBugs::Bug>.
+L<RDF::DOAP>.
 
 =head1 AUTHOR
 
@@ -306,7 +344,7 @@ Toby Inkster E<lt>tobyink@cpan.orgE<gt>.
 
 =head1 COPYRIGHT AND LICENCE
 
-This software is copyright (c) 2012 by Toby Inkster.
+This software is copyright (c) 2012, 2014 by Toby Inkster.
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

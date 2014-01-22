@@ -3,32 +3,19 @@
 @prefix : <http://purl.org/NET/cpan-uri/terms#> .
 
 <http://purl.org/NET/cpan-uri/dist/RT-ClientX-GrabBugs/project>
-	:perl_version_from
-		_:main;
-	:version_from
-		_:main;
-	:readme_from
-		_:main;
-	:install_script
-		_:script;
 	:test_requires
-		"Test::More 0.61";
+		"Test::More 0.96";
+	:recommends
+		"RDF::TrineX::Serializer::MockTurtleSoup";
 	:requires
-		"autodie",
+		"perl 5.010",
+		"Moose 2.0600",
 		"namespace::autoclean",
-		"utf8",
+		"Try::Tiny",
+		"Types::Standard",
 		"Getopt::ArgvFile",
 		"Getopt::Long",
-		"HTTP::Cookies",
-		"Module::Install::Admin::RDF",
-		"Moose 2.00",
 		"RDF::Trine 0.130",
-		"Web::Magic 0.007".
-
-_:main
-	<http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName>
-		"lib/RT/ClientX/GrabBugs.pm".
-
-_:script
-	<http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#fileName>
-		"bin/rt-grabbugs".
+		"RT::Client::REST",
+		"RT::Client::REST::Queue",
+		"Path::FindDev".
