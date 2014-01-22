@@ -7,17 +7,23 @@
 @prefix xsd:     <http://www.w3.org/2001/XMLSchema#> .
 
 <http://purl.org/NET/cpan-uri/dist/RT-ClientX-GrabBugs/project>
-	a               :Project ;
-	:programming-language "Perl" ;
-	:name           "RT-ClientX-GrabBugs" ;
-	:shortdesc      "download bugs from an RT queue and dump them as RDF" ;
-	:homepage       <https://metacpan.org/release/RT-ClientX-GrabBugs> ;
-	:download-page  <https://metacpan.org/release/RT-ClientX-GrabBugs> ;
-	:bug-database   <http://rt.cpan.org/Dist/Display.html?Queue=RT-ClientX-GrabBugs> ;
-	:created        "2012-01-29"^^xsd:date ;
-	:license        <http://dev.perl.org/licenses/> ;
-	:developer      [ a foaf:Person ; foaf:name "Toby Inkster" ; foaf:mbox <mailto:tobyink@cpan.org> ] .
+	a               :Project;
+	:programming-language "Perl";
+	:name           "RT-ClientX-GrabBugs";
+	:shortdesc      "download bugs from an RT queue and dump them as RDF";
+	:homepage       <https://metacpan.org/release/RT-ClientX-GrabBugs>;
+	:download-page  <https://metacpan.org/release/RT-ClientX-GrabBugs>;
+	:bug-database   <http://rt.cpan.org/Dist/Display.html?Queue=RT-ClientX-GrabBugs>;
+	:created        "2012-01-29"^^xsd:date;
+	:license        <http://dev.perl.org/licenses/>;
+	:developer      <http://purl.org/NET/cpan-uri/person/tobyink>;
+	:maintainer     <http://purl.org/NET/cpan-uri/person/tobyink>.
+
+<http://purl.org/NET/cpan-uri/person/tobyink>
+	a               foaf:Person;
+	foaf:name       "Toby Inkster";
+	foaf:mbox       <mailto:tobyink@cpan.org>.
 
 <http://dev.perl.org/licenses/>
-	dc:title        "the same terms as the perl 5 programming language system itself" .
+	dc:title        "the same terms as the perl 5 programming language system itself".
 

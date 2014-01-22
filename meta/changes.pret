@@ -1,0 +1,13 @@
+# This file acts as the project's changelog.
+
+`RT-ClientX-GrabBugs 0.001 cpan:TOBYINK`
+	issued       2012-01-29;
+	label        "Initial release".
+
+`RT-ClientX-GrabBugs 0.002 cpan:TOBYINK`
+	issued       2014-01-22;
+	label        "Mark II";
+	changeset [
+		item "use Dist::Inkt."^^Packaging;
+		item "Almost total rewrite, using RT::Client::REST to do the bulk of the work interfacing with RT."^^Change;
+	].

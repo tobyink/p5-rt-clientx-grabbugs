@@ -1,21 +1,19 @@
 # This file provides instructions for packaging.
 
-@prefix : <http://purl.org/NET/cpan-uri/terms#> .
+@prefix : <http://ontologi.es/doap-deps#> .
 
 <http://purl.org/NET/cpan-uri/dist/RT-ClientX-GrabBugs/project>
-	:test_requires
-		"Test::More 0.96";
-	:recommends
-		"RDF::TrineX::Serializer::MockTurtleSoup";
-	:requires
-		"perl 5.010",
-		"Moose 2.0600",
-		"namespace::autoclean",
-		"Try::Tiny",
-		"Types::Standard",
-		"Getopt::ArgvFile",
-		"Getopt::Long",
-		"RDF::Trine 0.130",
-		"RT::Client::REST",
-		"RT::Client::REST::Queue",
-		"Path::FindDev".
+	:test-requirement       [ :on "Test::More 0.96"^^:CpanId ];
+	:runtime-recommendation [ :on "RDF::TrineX::Serializer::MockTurtleSoup"^^:CpanId ];
+	:runtime-requirement    [ :on "perl 5.010"^^:CpanId ];
+	:runtime-requirement    [ :on "Moose 2.0600"^^:CpanId ];
+	:runtime-requirement    [ :on "namespace::autoclean"^^:CpanId ];
+	:runtime-requirement    [ :on "Try::Tiny"^^:CpanId ];
+	:runtime-requirement    [ :on "Types::Standard 0.038"^^:CpanId ];
+	:runtime-requirement    [ :on "Getopt::ArgvFile"^^:CpanId ];
+	:runtime-requirement    [ :on "Getopt::Long"^^:CpanId ];
+	:runtime-requirement    [ :on "RDF::Trine 0.130"^^:CpanId ];
+	:runtime-requirement    [ :on "RT::Client::REST"^^:CpanId ];
+	:runtime-requirement    [ :on "RT::Client::REST::Queue"^^:CpanId ];
+	:runtime-requirement    [ :on "Path::FindDev"^^:CpanId ];
+	.
