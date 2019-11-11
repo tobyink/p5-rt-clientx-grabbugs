@@ -18,3 +18,9 @@
 	changeset [
 		item "Cope with invalid email addresses."^^Change;
 	].
+
+`RT-ClientX-GrabBugs 0.004 cpan:TOBYINK`
+	issued       2019-11-11;
+	changeset [
+		item "Force uppercase on PAUSEIDs."^^Change;
+	].
