@@ -191,7 +191,7 @@ sub _process_ticket
 	
 	for my $email ($ticket->requestors) {
 		my $R = ($email =~ /\A(\w+)\@cpan.org\z/i)
-			? iri(sprintf 'http://purl.org/NET/cpan-uri/person/%s', $1)
+			? iri(sprintf 'http://purl.org/NET/cpan-uri/person/%s', uc $1)
 			: ( $EMAIL{$email} ||= blank() );
 		$model->add_statement($_) for (
 			RDF::Trine::Statement->new($T, $dc->reporter, $R),
