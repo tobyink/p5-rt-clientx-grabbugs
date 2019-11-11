@@ -11,3 +11,10 @@
 		item "use Dist::Inkt."^^Packaging;
 		item "Almost total rewrite, using RT::Client::REST to do the bulk of the work interfacing with RT."^^Change;
 	].
+
+`RT-ClientX-GrabBugs 0.003 cpan:TOBYINK`
+	issued       2019-11-11;
+	label        "Casually issues a new release.";
+	changeset [
+		item "Cope with invalid email addresses."^^Change;
+	].
