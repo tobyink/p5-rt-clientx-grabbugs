@@ -22,6 +22,7 @@ use RT::Client::REST         qw();
 use RT::Client::REST::Queue  qw();
 use Cwd                      qw(cwd);
 use Path::FindDev            qw(find_dev);
+use Digest::SHA1             qw(sha1_hex);
 
 use RDF::Trine::Namespace qw/rdf rdfs owl xsd/;
 my $dbug   = RDF::Trine::Namespace->new('http://ontologi.es/doap-bugs#');
@@ -195,8 +196,11 @@ sub _process_ticket
 		$model->add_statement($_) for (
 			RDF::Trine::Statement->new($T, $dc->reporter, $R),
 			RDF::Trine::Statement->new($R, $rdf->type, $foaf->Agent),
-			RDF::Trine::Statement->new($R, $foaf->mbox, iri sprintf('mailto:%s', $email)),
+			RDF::Trine::Statement->new($R, $foaf->mbox_sha1sum, literal(sha1_hex(sprintf('mailto:%s', $email)))),
 		);
+		try {
+			RDF::Trine::Statement->new($R, $foaf->mbox, iri sprintf('mailto:%s', $email)),
+		};
 	}
 }
 
