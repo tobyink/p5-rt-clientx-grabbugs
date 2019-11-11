@@ -219,16 +219,16 @@ sub process
 	open my $fh, '>:encoding(UTF-8)', $self->dest;
 	
 	$ser->new(namespaces => {
-			dbug   => 'http://ontologi.es/doap-bugs#',
-			dc     => 'http://purl.org/dc/terms/',
-			doap   => 'http://usefulinc.com/ns/doap#',
-			foaf   => 'http://xmlns.com/foaf/0.1/',
-			rdfs   => 'http://www.w3.org/2000/01/rdf-schema#',
-			rt     => 'http://purl.org/NET/cpan-uri/rt/ticket/',
-			status => 'http://purl.org/NET/cpan-uri/rt/status/',
-			prio   => 'http://purl.org/NET/cpan-uri/rt/priority/',
-			xsd    => 'http://www.w3.org/2001/XMLSchema#',
-		})->serialize_model_to_file($fh, $model);
+		dbug   => 'http://ontologi.es/doap-bugs#',
+		dc     => 'http://purl.org/dc/terms/',
+		doap   => 'http://usefulinc.com/ns/doap#',
+		foaf   => 'http://xmlns.com/foaf/0.1/',
+		rdfs   => 'http://www.w3.org/2000/01/rdf-schema#',
+		rt     => 'http://purl.org/NET/cpan-uri/rt/ticket/',
+		status => 'http://purl.org/NET/cpan-uri/rt/status/',
+		prio   => 'http://purl.org/NET/cpan-uri/rt/priority/',
+		xsd    => 'http://www.w3.org/2001/XMLSchema#',
+	})->serialize_model_to_file($fh, $model);
 	
 	$self;
 }
