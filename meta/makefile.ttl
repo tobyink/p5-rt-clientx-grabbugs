@@ -7,6 +7,7 @@
 	:runtime-recommendation [ :on "RDF::TrineX::Serializer::MockTurtleSoup"^^:CpanId ];
 	:runtime-requirement    [ :on "perl 5.010"^^:CpanId ];
 	:runtime-requirement    [ :on "Moose 2.0600"^^:CpanId ];
+	:runtime-requirement    [ :on "Digest::SHA1"^^:CpanId ];
 	:runtime-requirement    [ :on "namespace::autoclean"^^:CpanId ];
 	:runtime-requirement    [ :on "Try::Tiny"^^:CpanId ];
 	:runtime-requirement    [ :on "Types::Standard 0.038"^^:CpanId ];
