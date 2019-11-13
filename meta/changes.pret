@@ -24,3 +24,9 @@
 	changeset [
 		item "Force uppercase on PAUSEIDs."^^Change;
 	].
+
+`RT-ClientX-GrabBugs 0.005 cpan:TOBYINK`
+	issued       2019-11-13;
+	changeset [
+		item "Dependency on Digest::SHA1."^^Packaging;
+	].
